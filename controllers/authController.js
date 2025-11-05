@@ -1,41 +1,40 @@
 import User from "../models/User.js";
-
 import { generateToken } from "../utils/generateToken.js";
 
+const adminEmails = ["director@nitc.ac.in", "admin@nitc.ac.in"];
 
-// ✅ Admin emails hardcoded
-const adminEmails = ["director@nitc.ac.in", "pa@nitc.ac.in"];
-
-/**
- * @route POST /api/auth/login
- * @desc Login using OAuth profile info (email, googleId etc)
- * @access Public
- */
 export const oauthLogin = async (req, res) => {
   try {
     const { email, name, googleId, profileImage } = req.body;
 
-    if (!email || !googleId)
+    if (!email || !googleId) {
       return res.status(400).json({ message: "Email and Google ID required" });
+    }
 
+    // Fetch existing user
     let user = await User.findOne({ email });
+    console.log("Fetched user:", user);
 
     if (!user) {
+      // Determine role only for new users
       const domain = email.split("@")[1];
-      let role = "external user";
+      let role = "external";
 
-      if (domain === "nitc.ac.in") role = "internal user";
-      if (email === "director@nitc.ac.in" || email === "admin@nitc.ac.in") {
-        role = "admin";
-      }
+    
+      if (adminEmails.includes(email)) role = "admin";
+      //else if (domain === "nitc.ac.in") role = "internal user";
+      //else role = "external user";
+      
 
+      // Create new user
       user = await User.create({
-        email,
         name,
-        googleId,
+        email,
+        google_id: googleId,
         profileImage,
-        role_name: role,
+        role,
       });
+      console.log("Created user:", user);
     }
 
     const token = generateToken(user._id);
@@ -46,9 +45,11 @@ export const oauthLogin = async (req, res) => {
       user,
     });
   } catch (err) {
+    console.error("OAuth login error:", err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /**
  * @route POST /api/auth/logout
